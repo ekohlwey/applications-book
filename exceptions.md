@@ -93,6 +93,48 @@ and present the user with a helpful message (for most web services, that would b
 wait for a moment; an administrator has been notified and the service will
 be back online shortly), or notify an administrator that there is a problem.
 
+### Error Data
+
+Often, exceptions occur because of badly-formatted data. In such a case, I like to provide
+the example datum on the exception because inspecting error data is such a common task, even
+if I don't happen to inspect the error datum at the time I have written the class.
+
+So, for example, I might have the following exception definition:
+
+```java
+public class JetDeserializationException extends Exception{
+
+  public JetDeserializationException(String jetRecord){
+    super("Unable to deserialize jet " + jetRecord);
+  }
+
+}
+```
+
+This is ok since it is precise, but if I happen upon a use case where I want to look
+at what happened to the jet record that prevented me from parsing it, I need to
+go back and refactor all the places where this exception is created, which is inconvenient.
+If I just designed the exception to provide an example datum to begin with (which
+is a very common need) then I wouldn't have to muck around with refactoring later.
+
+Here's a better version of the same class, which contains all the information I need to highlight
+the `Jet` serialization error in a GUI (as an example):
+
+```java
+public class JetDeserializationException extends Exception{
+  ...
+  public JetDeserializationException(String jetRecord, int offset, char got, char[] expected){
+    super("Unable to deserialize jet " + jetRecord + " at " + offset + " got " + got + " expected one " +
+        "of " + asList(expected) );
+    this.record = jetRecord;
+    this.offset = offset;
+    this.got = got;
+    this.expected = expected;
+  }
+}
+```
+
+
 Checking
 --------
 
