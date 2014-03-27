@@ -326,3 +326,114 @@ may need to perform runtime evaluation of generics to ensure that conversion is
 actually possible. As a result, the registration also requires a `Matcher`
 class which tells Guice what types the converter is able to convert to.
 
+Patterns for Leveraging Java Serialization in Distributed Applications
+----------------------------------------------------------------------
+
+Serialization is an important topic in distributed applications because it
+provides the mechanism by which we deploy application state to multiple
+physical hosts and JVMs.
+
+While there are many good serialization frameworks out there, Java
+comes with one that is built-in, and which is fairly light-weight
+in terms of code (although, it is often maligned for its processer
+inefficiency).
+
+Because native Java serialization is lightweight to work with in code,
+and because application start-up times are rarely a significant issue
+in distributed applications, Java serialization is great for use in application
+start-up type use cases.
+
+Storm, for instance, allows you to use Java serialization with Bolt and
+Spout objects (which are important programming primitives within Storm).
+Rather than using a map of configuration values to populate the state of
+a Storm Spout or Bolt, you can simply use Java serialization. This is
+exceptionally convenient for use with Guice, because you can use Guice
+injection to configure a Storm topology rather than writing boilerplate
+configuration code.
+
+One encounters difficulties in this paradigm, though, when one begins
+using stateful objects that cannot be serialized, such as database
+connections.
+
+This problem can be solved by using the factory design pattern, making
+sure that the actual factories themselves are serializable.
+
+Take the example below:
+
+```java
+public class JetRadar {
+  private DatabaseConnection connection;
+  
+  public void logPosition(Jet jet){
+    connection.insert(jet.getLatitude(), jet.getLongitude());
+  }
+}
+```
+
+Here, it is unlikely that we can serialize `DatabaseConnection`. Rather than
+doing that, though, we can tell the application how to create a new 
+`DatabaseConnection` any time it needs (such as when it starts up on a new
+remote host!).
+
+This example works better in such a context:
+
+```java
+public class DatabaseConnectionFactory implements Serializable{
+  private final String username;
+  private final String password;
+  private final String uri;
+  
+  @Inject public DatabaseConnectionFactory(
+      @Named("db-username" String username, 
+      @Named("db-password") String password, 
+      @Named("db-uri") String uri){
+   ...
+  }
+  
+  public DatabaseConnection getConnection(){
+    return new DatabaseConnection(username, password, uri);
+  }
+}
+
+public class JetRadar implements Serializable{
+  private final DatabaseConnectionFactory connectionFactory;
+  private transient DatabaseConnection connection;
+  
+  @Inject public JetRadar(DatabaseConnectionFactory factory){
+    ...
+  }
+  
+  public void logPosition(Jet jet){
+    if(connection!=null){
+      connection = connectionFactory.getConnection();
+    }
+    connection.insert(jet.getLatitude(), jet.getLongitude());
+  }
+}
+```
+
+Now, when we serialize `JetRadar` and transfer it to a remote host,
+it will be able to create a new connection using the connection
+factory.
+
+It's important here to take a few moments to talk about security
+and state handling. 
+
+Since database connections (and their credentials)
+are one of the main targets for this sort of thing, care must be
+taken to make sure that you do not compromise your credentials by
+serializing them to a location that is readable by others. Databases
+that leverage Hadoop's delegation tokens are favorable in this
+context because the system has been designed for exactly this type
+of use case. Kerberos tokens share a similar useful property, although
+they can be more difficult to leverage because of the host-based
+security checks in the Kerberos protocol.
+
+You also must use good connection handling practices when using
+these patterns. Often an application will start and leave a connection
+open for many hours, however there are not always convenient ways
+to close a connection as part of the application lifecycle. Storm,
+for instance, provides no shutdown hooks to signal Bolt shutdown.
+In such situations, you can leverage the JVM's own lifecycle guarantees
+via the `java.lang.Runtime.addShutdownHook()` facility.
+
