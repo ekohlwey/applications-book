@@ -28,5 +28,6 @@ license.
 
 Table of Contents
 -----------------
-- [Dependency Injection and Guice](./di.md)
-- [Exception Handling](./exceptions.md) 
+1. [Dependency Injection and Guice](./di.md)
+2. [Exception Handling](./exceptions.md) 
+3. [Logging, Metrics, and Performance](./logging.md)
