@@ -3,11 +3,11 @@ Exception Handling
 
 Effective exception handling is fundamental to good application
 design. While there is much debate about what exception handling
-methodology debate, there is no debate that one should decide
+methodology to use, there is no debate that one should decide
 on and use a uniform methodology within one's application.
 
 Without good exception handling, it is likely that your application
-will loose or corrupt data. It will also make operating your
+will loose or corrupt data. Good exception handling also makes operating your
 application easier because the folks installing your application
 will have an easier time figuring out what has gone wrong and fixing
 it (something always does).
@@ -50,7 +50,6 @@ store a list of Apples. Below is a common novice solution to handling
 a `ZookeeperException` (which ZooKeeper uses to convey a problem back to API users):
 
 ```java
-
 class AppleManager {
   
   public List<Apple> getApples() throws ZookeeperException {...}
@@ -58,7 +57,6 @@ class AppleManager {
   public List<Apple> setApple(int i, Apple apple) throws ZookeeperException {...}
 
 }
-
 ```
 
 The method signature above simply propagates the `ZookeeperException` to... well
@@ -74,13 +72,11 @@ This is a bad idea. Consider the following:
 For both of these reasons, the following definition would be more appropriate:
 
 ```java
-
 class AppleManager {
   
   public List<Apple> getApples() throws UnableToContactDataStoreException {...}
 
   public List<Apple> setApple(int i, Apple apple) throws UnableToContactDataStoreException {...}
-
 }
 
 ```
@@ -88,7 +84,7 @@ class AppleManager {
 I don't really care that the application can't contact Zookeeper. I care that the
 underlying data store is having problems and I need to tell someone to go look at it
 and fix it. Furthermore, as indicated by the aforementioned considerations, many
-subclasses of ZookeeperException are intended to be caught at the location of the call.
+subclasses of ZookeeperException are intended to be caught at the location of the method invocation.
 (as a side note, this behavior, which many find counterintuitive, was a major motivator
 for the creation of the Curator project, which most applications use instead of Zookeeper).
 
@@ -97,12 +93,54 @@ and present the user with a helpful message (for most web services, that would b
 wait for a moment; an administrator has been notified and the service will
 be back online shortly), or notify an administrator that there is a problem.
 
+### Error Data
+
+Often, exceptions occur because of badly-formatted data. In such a case, I like to provide
+the example datum on the exception because inspecting error data is such a common task, even
+if I don't happen to inspect the error datum at the time I have written the class.
+
+So, for example, I might have the following exception definition:
+
+```java
+public class JetDeserializationException extends Exception{
+
+  public JetDeserializationException(String jetRecord){
+    super("Unable to deserialize jet " + jetRecord);
+  }
+
+}
+```
+
+This is ok since it is precise, but if I happen upon a use case where I want to look
+at what happened to the jet record that prevented me from parsing it, I need to
+go back and refactor all the places where this exception is created, which is inconvenient.
+If I just designed the exception to provide an example datum to begin with (which
+is a very common need) then I wouldn't have to muck around with refactoring later.
+
+Here's a better version of the same class, which contains all the information I need to highlight
+the `Jet` serialization error in a GUI (as an example):
+
+```java
+public class JetDeserializationException extends Exception{
+  ...
+  public JetDeserializationException(String jetRecord, int offset, char got, char[] expected){
+    super("Unable to deserialize jet " + jetRecord + " at " + offset + " got " + got + " expected one " +
+        "of " + asList(expected) );
+    this.record = jetRecord;
+    this.offset = offset;
+    this.got = got;
+    this.expected = expected;
+  }
+}
+```
+
+
 Checking
 --------
 
 Checked exceptions simply mean that the compiler will fail to compile your code if you
 do not explicitly do something with an exception, either by propagating it, handling it,
-or whatever.
+or swallowing it.
 
 The intent of this pattern was to force Java developers to actually do something meaningful
 with exceptions. Unfortunately good exception handling practices are not taught in many
@@ -220,11 +258,11 @@ IOE). You can find it on [rholder's Github](https://github.com/rholder/guava-ret
 the thread on an 
 [offical request to integrate the functionality](https://code.google.com/p/guava-libraries/issues/detail?id=490)
 directly into Guava for some alternatives, and updates on when it can be expected in the main 
-guava release.
+Guava release.
 
 ### IOException Abuse
 
-IOE is so common in method signatures, that many folks also feel it is an invitation to
+IOE is so common in method signatures that many folks also feel it is an invitation to
 get rid of checked exception that they don't understand or have no meaningful way to report.
 Countless thought clouds have risen above programmers heads: "Hmmm, what should I do with that
 Exception... I don't know, but I'm implementing a method that can throw an IOE... I know! I'll wrap 
@@ -236,7 +274,7 @@ around the return types or error handling that you utilize in an RPC interface**
 Interruption
 ------------
 
-Interruption in Java has a long and stories history. Without rehashing it, this is what you need to know:
+Interruption in Java has a long and storied history. Without rehashing it, this is what you need to know:
 
 - `InterruptedException` exists so that operating system libraries have a way to notify sleeping
   threads that something has happened that they need to pay attention to (perhaps populating a
@@ -258,8 +296,8 @@ Interruption in Java has a long and stories history. Without rehashing it, this 
 
 The reason for this is:
 
-1. Catching the exception clears a flag on the thread that was interrupted
-2. Setting the flag again ensures that other frameworks can check the flag if they need to
+1. Catching the exception clears a flag on the thread that was interrupted. This flag is used for communication.
+2. Setting the flag again ensures that other frameworks can check the flag if they need to.
 
 There are many locking constructs in `java.util.concurrent` that you can use instead of `Object.wait()` if you
 want these details to be handled transparently by some library code. They also provide clearer locking
