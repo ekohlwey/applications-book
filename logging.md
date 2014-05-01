@@ -59,8 +59,9 @@ though Flume uses an agent which is very good at keeping track of transactional
 aggregation state, the framework's durability guarantees are subject to the
 devices it is implemented over. Nothing is 100% durable.
 
-This may be configured with Log4J 1.2 by using the `log4j1.2-extras.jar` and
-configuring the appender to use time and daemon based file names. For instance:
+You may configure Log4J 1.2 to create reasonably unique names by using the 
+`log4j1.2-extras.jar` and configuring the appender to use time and daemon 
+based file names. For instance:
 ```xml
 <rollingPolicy class="org.apache.log4j.rolling.TimeBasedRollingPolicy">
   <param 
@@ -101,9 +102,13 @@ class JetFactory {
 ...
 ```
 
-You should also take into consideration _what to log_.
+You should also take into consideration _what not to log_.
 
-### What to Log
+### What Not to Log
+
+I say what not to log, because almost anything may be of interest at any given
+time. So the question to ask is not so much what to log, but what things should
+you never log, or what are common bad practices for logging?
 
 Every time you log something, you transmit anywhere from 10-100 bytes to an IO-
 constrained resource. Maybe that resource is a physical disk, or maybe it is a
@@ -112,7 +117,82 @@ resource is _constrained_ and your logs must always be a secondary consideration
 to the performance of the application being logged.
 
 You should always be cautious of using logging to diagnose performance issues, 
-for instance, because logging itself creates performance issues.
+for instance, because logging itself creates performance issues. If you do
+use logging to diagnose performance issues, you should make it as specific
+as possible using a combination of logging levels and class or package based
+level configuration.
+
+#### Level and Package Filtering Configuration
+
+All logging frameworks have methods to detect if a certain log level is enabled,
+and for which part of the code base that level is enabled.
+You can easily recognize such methods in _guarding statements_, which usually
+look something like this:
+
+```java
+class SomeClass {
+...
+// this is a log declaration
+private static final Log LOG = LogManager.getLog(SomeClass.class);
+...
+    // this is a gurard statement
+    if (LOG.isDebugEnabled()){
+      LOG.debug("Something happended at " + System.currentTimeMillis());
+    }
+...
+```
+
+By convention, the `LOG` object above is scoped to a particular part of the codebase
+or aspect of logging, usually by the fully-qualified class name. This is usually
+achieved by using a single static instance that is declared within a particular class.
+The logging framework is able to detect where a logging statement occurs and at 
+what level it is logged though the combination of the class name used in the
+static field declaration and the method signature of the guard statement.
+
+The logging framework is coded to be very efficient in determining whether or not to log.
+By doing this, you are able to avoid the overhead associated with a particular
+logging statement.
+
+You can achieve different levels of scoping on a per-class or per-package basis
+in Log4J 1.2, for instance, using a configuration like this:
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+  <appender name="console" class="org.apache.log4j.ConsoleAppender"> 
+    <param name="Target" value="System.out"/> 
+    <layout class="org.apache.log4j.PatternLayout"> 
+      <param name="ConversionPattern" value="%-5p %c{1} - %m%n"/> 
+    </layout> 
+  </appender> 
+
+  <root> 
+    <priority value ="warn" /> 
+    <appender-ref ref="console" /> 
+  </root>
+  
+  <logger name="com.mycompany.apackage.SomeClass">
+    <level value="debug"/> 
+  </logger>
+  
+</log4j:configuration>
+```
+
+The first XML element, `appender`, declares a new appender called `console`, and
+sets up the actual implementation of how the console appender will append. Each
+appender will have its own implementation-specific configuration options.
+
+The second XML element, `root` sets up the root logger. In Log4J, all loggers
+inherit from some other logger - if one is not specified then it is assumed to be
+the root logger. The only configuration here is the priority to log and the
+appender to attach to.
+
+The last XML element, `logger` sets up a logger for our `SomeClass` class, and allows
+us to see debug statements _only from that class_. Since all other loggers are
+configured (via the root logger) to log at `LogLevel.WARN`, the only class we will
+see `LogLevel.DEBUG` information from is `SomeClass`.
 
 ### Where to Log
 
