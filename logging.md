@@ -85,7 +85,7 @@ _trace_, _debug_, _info_, _warn_, and _fatal_. Most logging frameworks also incl
 the ability to define a custom level that you can use for purposes such as audit
 logging.
 
-When logging, you should always guard logging statements to see if the level is
+When logging, you should always _guard_ logging statements to see if the level is
 enabled. Doing so ensures that computation, such as string concatenation, are
 not performed. While this may not seem like a big deal, I have personally seen
 2-3x performance reduction effects from poorly implemented logging statements.
@@ -126,21 +126,8 @@ level configuration.
 
 All logging frameworks have methods to detect if a certain log level is enabled,
 and for which part of the code base that level is enabled.
-You can easily recognize such methods in _guarding statements_, which usually
-look something like this:
-
-```java
-class SomeClass {
-...
-// this is a log declaration
-private static final Log LOG = LogManager.getLog(SomeClass.class);
-...
-    // this is a gurard statement
-    if (LOG.isDebugEnabled()){
-      LOG.debug("Something happended at " + System.currentTimeMillis());
-    }
-...
-```
+You can easily recognize such methods in _guard statements_, which are described
+above in _Impact of Logging_
 
 By convention, the `LOG` object above is scoped to a particular part of the codebase
 or aspect of logging, usually by the fully-qualified class name. This is usually
