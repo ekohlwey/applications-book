@@ -31,3 +31,4 @@ Table of Contents
 1. [Dependency Injection and Guice](./di.md)
 2. [Exception Handling](./exceptions.md) 
 3. [Logging, Metrics, and Performance](./logging.md)
+4. [Various Design Patterns](./design-patterms.md)
