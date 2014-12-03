@@ -32,3 +32,4 @@ Table of Contents
 2. [Exception Handling](./exceptions.md) 
 3. [Logging, Metrics, and Performance](./logging.md)
 4. [Data Modeling](./data-models.md)
+5. [Various Design Patterns](./design-patterms.md)
