@@ -1,5 +1,5 @@
-Effective Java Distributed Application Development
-==================================================
+Effective Distributed Java
+==========================
 
 I am a Java system architect and software developer who
 leads the implementation of projects within the big data
